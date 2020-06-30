@@ -59,4 +59,42 @@ Deploying the 'in-guest' application, Microsoft Network Monitor, is not top of m
 
         ![img](_media/sa_zip_generate2.png)
 
-4. Open PowerShell as Administrator and navigate to the directory where this repository was cloned or extracted
+4. Open PowerShell as Administrator and navigate to the directory where this repository was cloned or extracted and run the deployment script
+
+    ````PowerShell
+    .\New-AzVMNetMonDSCDeployment.ps1 -ResourceGroupName RG1 -DscConfigUri "https://mylong-storage-account-sas-url" -TemplateFilePath "D:\_Scripts\GitHubRepos\Az.VirtualMachineNetMon" -Verbose
+    ````
+
+    > Note: Using -Verbose allows the script to display the ongoing status of the deployment job
+
+5. The script will do some verification steps then prompt to select the Azure subscription (should be where the Resource Group is). Select the appropriate subscription and the script will continue.
+
+6. The script will get a list of virtual machines from the Resource Group Name and will call the `New-AzResourceGroupDeployment` cmdlet and attempt to deploy the WindowsNetMon.json template to the VMs found in the Resource Group.
+
+7. Once complete, review the deployment from PowerShell or the Azure portal (Resource Group -> Deployment blade)
+
+## Configure Network Monitor Scheduled Task
+
+This portion of the solution creates a scheduled task on each of the virtual machines where Network Monitor was installed. This will create a direction on each virtual machine (*C:\Windows\Utilities\NetMon*) where the XML for the task is copied and it is also the location of the capture files. The scheduled task XML is configured to begin a capture at user logon and will not create another instance if it is already running.  The capture is configured to create 250MB files.
+
+> Note: It may be necessary to purge the capture files from the directory, which is not currently part of this solution
+
+1. From the previous PowerShell console execute the configuration script
+
+    ````PowerShell
+    .\New-AzVMNetMonScheduledTask.ps1 -ResourceGroupName RG1 -LocalPath "\\server\share" -domainSuffix "contoso.com"
+    ````
+
+    > Note: the -LocalPath parameter is the location of the XML configuration file
+
+2. Similarly to the installation script, it will prompt the user to select their Azure subscription.
+
+3. The virtual machines will be collected based on the Resource Group Name (checks the Powerstate for '*vm running*')
+
+4. The script will check for the remote directory structure, if not found, it will be created.
+
+5. The XML file is copied to the virtual machine
+
+6. The script will use PS Remoting and invoke the SchTasks.exe command on the remote computer and create the Scheduled Task
+
+7. Log on to the VM and check the Scheduled Tasks under \Microsoft\Windows\NetTrace
